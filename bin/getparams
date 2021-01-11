@@ -1,0 +1,524 @@
+#!/usr/bin/env bash
+#
+# getparams
+#   Parse and validate program parameters
+#
+
+readonly PROGNAME="$(basename "$0")"
+readonly PROGNAME_INTL="getparams"
+readonly VERSION="0.1.0"
+
+usage() {
+  cat << EOF
+Usage: ${PROGNAME} [OPTION]... [-- [PARAM]...]
+
+Parse and validate program parameters.
+
+Options:
+  -k, --keep-order
+      Output non-option parameters in the same location they were found
+      rather than at the end of output after the '--' parameter.
+  -l, --longopts=LONGOPTS
+      A series of recognized long option definitions delimited by
+      whitespace and/or commas.
+  -n, --progname=PROGNAME
+      Name of the calling program for use in usage error messages.
+  -o, --shortopts=SHORTOPTS
+      A series of short option definitions optionally separated by
+      whitespace and/or commas.
+  -s, --stop-signal=SIGNAL
+      Stop parsing options when a parameter represented by SIGNAL is
+      encountered. This causes all remaining parameters including the
+      current one to be interpreted as non-option parameters.
+      Valid values are:
+        'explicit'    (a '--' parameter, this is the default)
+        'non-opt'     (the first non-option parameter)
+        'unknown-opt' (unrecognized option or the non-option parameter)
+  --help
+      Print this help text and exit
+  --version
+      Print version information and exit
+
+For more details, see ${PROGNAME_INTL}(1).
+EOF
+}
+
+try_help() {
+  >&2 echo "Try '${PROGNAME} --help' for more information."
+}
+
+#
+# Usage: usage_err PROGNAME [TEXT]...
+#
+# Print a standard usage error message to standard error.
+#
+usage_err() {
+  local progname="$1"; shift
+  >&2 printf "%s" "${progname:-error}: " "$@" $'\n'
+}
+
+#
+# Usage: get_opt_name PARAM
+#
+# Get a friendly name from an option parameter and print to standard output.
+#
+# If PARAM is a short option, outputs the option letter (e.g. 'o').
+# If PARAM is a long option, outputs the option name with leading '--'
+# (e.g. '--option')
+# If PARAM is neither, output the original PARAM
+#
+get_opt_name() {
+  local opt_name="${1%%=*}"
+
+  case "${opt_name}" in
+    --) ;&
+    -) echo "$1" ;;
+    --*) echo "${opt_name}" ;;
+    -*) echo "${opt_name#-}" ;;
+    *) echo "$1" ;;
+  esac
+}
+
+#
+# Usage: quote PARAM
+#
+# Wrap PARAM in single quotes and escape any embedded single quotes.
+#
+quote() {
+  echo "'$(sed "s:':'\\\'':g" <<< "$1")'"
+}
+
+#
+# Usage: get_shortopt_def PROGNAME OPTCHAR SHORTOPTS
+#
+# Search short option definitions for an option character
+# and output the full definition (e.g. 'o::').
+#
+# Arguments:
+#   PROGNAME
+#     Name of the calling program for use in usage error messages.
+#   OPTCHAR
+#     Short option character to search for. Must not include the leading '-'.
+#   SHORTOPTS
+#     Whitespace-delimited series of short option definitions to be searched.
+#
+# Return Codes:
+#   0  success
+#   1  OPTCHAR not found
+#
+get_shortopt_def() {
+  local progname="$1"
+  local opt_char="$2"
+  local shortopts="$3"
+
+  for opt_def in ${shortopts}; do
+    if [[ "${opt_def}" =~ ^"${opt_char}":{0,2}$ ]]; then
+      echo "${opt_def}"
+      return 0
+    fi
+  done
+
+  usage_err "${progname}" "unrecognized option '${opt_char}'"
+  return 1
+}
+
+#
+# Usage: get_longopt_def PROGNAME OPTNAME LONGOPTS
+#
+# Search long option definitions for a long option name
+# and output the full definition (e.g. 'option::').
+#
+# Arguments:
+#   PROGNAME
+#     Name of the calling program for use in usage error messages.
+#   OPTNAME
+#     The full or abbreviated long option name to search for.
+#     Must not include the leading '--'.
+#   LONGOPTS
+#     Whitespace-delimited series of long option definitions to be searched.
+#
+# Return Codes:
+#   0  success
+#   1  OPTNAME not found or is an ambiguous abbreviation.
+#
+get_longopt_def() {
+  local progname="$1"
+  local opt_name="$2"
+  local longopts="$3"
+
+  local matched_def matches=()
+
+  for opt_def in ${longopts}; do
+    if [[ "${opt_def}" =~ ^"${opt_name}":{0,2}$ ]]; then
+      # Exact match
+      echo "${opt_def}"
+      return 0
+    elif [[ "${opt_def}" =~ ^"${opt_name}"[-a-z0-9]+:{0,2}$ ]]; then
+      # Abbreviation
+      matched_def="${opt_def}"
+      matches+=( "--${opt_def%%:*}" )
+    fi
+  done
+
+  if (( ${#matches[@]} < 1 )); then
+    usage_err "${progname}" "unrecognized option '--${opt_name}'"
+    return 1
+  elif (( ${#matches[@]} > 1 )); then
+    usage_err "${progname}" "ambiguous option '--${opt_name}': " \
+      "possibilities: ${matches[*]}"
+    return 1
+  fi
+
+  echo "${matched_def}"
+}
+
+#
+# Usage: parse PROGNAME KEEP_ORDER STOP_SIGNAL SHORTOPTS LONGOPTS [PARAM]...
+#
+# Parse and validate program parameters.
+#
+# Arguments correspond to the similarly named paramterse(1) options,
+# the details of which can be found in the usage() function.
+#
+# Arguments:
+#   PROGNAME    : string
+#   KEEP_ORDER  : '1' for true, '0' for false
+#   STOP_SIGNAL : 'explicit', 'non-opt', or 'unknown-opt'
+#   SHORTOPTS   : whitespace-delimited series of short option definitions
+#   LONGOPTS    : whitespace-delimited series of long option definitions
+#
+# Return Codes:
+#   0  success
+#   1  usage error encountered when parsing parameters
+#
+parse() {
+  local progname="$1"; shift
+  local keep_order="$1"; shift
+  local stop_signal="$1"; shift
+  local shortopts="$1"; shift
+  local longopts="$1"; shift
+
+  local params=() nonopts=()
+
+  while (( $# > 0 )); do
+    case "$1" in
+      --)
+        # Stop parsing options
+        
+        shift
+        break
+        ;;
+
+      -)
+        # Non-option parameter
+        
+        # Non-option parameters stop option parsing
+        [[ "${stop_signal}" != "explicit" ]] && break
+        
+        (( keep_order )) && params+=( "'-'" ) || nonopts+=( "'-'" )
+        ;;
+
+      --*)
+        # Long option
+
+        local opt_name="${1#--}"; opt_name="${opt_name%%=*}"
+        local opt_arg="${1#*=}"
+        local opt_def
+
+        # Get option definition
+        if [[ "${stop_signal}" == "unknown-opt" ]]; then
+          opt_def="$(get_longopt_def "${progname}" "${opt_name}" \
+            "${longopts}" 2> /dev/null)"
+
+          # Unknown options stop option parsing
+          (( $? != 0 )) && break
+        else
+          opt_def="$(get_longopt_def "${progname}" "${opt_name}" \
+            "${longopts}")"
+
+          # Unknown options generate errors
+          (( $? != 0 )) && return 1
+        fi
+
+        local opt_fullname="${opt_def%%:*}"
+        
+        # Parse option
+        case "${opt_def}" in
+          *::)
+            # Optional argument
+
+            if [[ "$1" =~ ^"--${opt_name}=".*$ ]]; then
+              # Specified optional argument
+              params+=( "--${opt_fullname}=$(quote "${opt_arg}")" )
+            else
+              # Unspecified optional argument
+              params+=( "--${opt_fullname}" )
+            fi
+            ;;
+
+          *:)
+            # Required argument
+
+            if [[ "$1" =~ ^"--${opt_name}=".*$ ]]; then
+              # Specified required argument in current parameter
+              params+=( "--${opt_fullname}=$(quote "${opt_arg}")" )
+            elif (( $# > 1 )); then
+              # Specified required argument in next parameter
+              shift
+              opt_arg="$1"
+              params+=( "--${opt_fullname}=$(quote "${opt_arg}")" )
+            else
+              # Unspecified required argument
+              usage_err "${progname}" \
+                "option '--${opt_fullname}' requires an argument"
+              return 1
+            fi
+            ;;
+
+          *)
+            # No argument
+
+            if [[ "$1" =~ ^"--${opt_name}=".*$ ]]; then
+              # Specified unwanted argument
+              usage_err "${progname}" \
+                "option '--${opt_fullname}' doesn't accept an argument"
+              return 1
+            fi
+
+            params+=( "--${opt_fullname}" )
+            ;;
+        esac
+        ;;
+        
+      -*)
+        # Short option group
+
+        local group_opt_chars="${1#-}"
+        local opt_count=${#group_opt_chars}
+
+        # Store parsed parameters here until the entire short option group
+        # is parsed. This way, if STOP_SIGNAL is set to 'unknown' and an
+        # unrecognized option is encountered, then the entire short option
+        # group can be interpreted as a non-option parameter.
+        local group_params=()
+
+        local i opt_char opt_def opt_arg
+
+        for (( i=0; i < opt_count; i++ )); do
+          opt_char="${group_opt_chars:i:1}"
+          
+          # Get option definition
+          if [[ "${stop_signal}" == "unknown-opt" ]]; then
+            opt_def="$(get_shortopt_def "${progname}" "${opt_char}" \
+              "${shortopts}" 2> /dev/null)"
+
+            # Unknown options stop option parsing
+            (( $? != 0 )) && break 2
+          else
+            opt_def="$(get_shortopt_def "${progname}" "${opt_char}" \
+              "${shortopts}")"
+
+            # Unknown options generate errors
+            (( $? != 0 )) && return 1
+          fi
+
+          # Parse option
+          case "${opt_def}" in
+            *::)
+              # Optional argument
+              
+              if (( i < opt_count - 1 )); then
+                # Specified optional argument
+                opt_arg="${group_opt_chars:i+1}"
+                group_params+=( "-${opt_char}=$(quote "${opt_arg}")" )
+                break
+              else
+                # Unspecified optional argument
+                group_params+=( "-${opt_char}" )
+              fi
+              ;;
+
+            *:)
+              # Required argument
+              
+              if (( i < opt_count - 1 )); then
+                # Specified required argument in current parameter
+                opt_arg="${group_opt_chars:i+1}"
+              elif (( $# > 1 )); then
+                # Specified required argument in next parameter
+                shift
+                opt_arg="$1"
+              else
+                # Unspecified required argument
+                usage_err "${progname}" \
+                  "option '${opt_char}' requires an argument"
+                return 1
+              fi
+
+              group_params+=( "-${opt_char}=$(quote "${opt_arg}")" )
+              break
+              ;;
+
+            *)
+              # No argument
+              
+              group_params+=( "-${opt_char}" )
+              ;;
+          esac
+        done
+
+        params+=( "${group_params[@]}" )
+        ;;
+
+      *)
+        # Non-option parameter
+        
+        # Non-option parameters stop option parsing
+        [[ "${stop_signal}" != "explicit" ]] && break
+         
+        (( keep_order )) \
+          && params+=( "$(quote "$1")" ) \
+          || nonopts+=( "$(quote "$1")" )
+        ;;
+    esac
+
+    shift
+  done
+
+  # Any remaining parameters are non-option parameters
+  while (( $# > 0 )); do
+    nonopts+=( "$(quote "$1")" )
+    shift
+  done
+
+  echo "${params[*]} -- ${nonopts[*]}"
+}
+
+main() {
+  local shortopts=( k l: n: o: s: )
+  local longopts=(
+    keep-order longopts: progname: shortopts: stop-signal: help version
+  )
+
+  local params
+  params="$(parse "${PROGNAME}" 1 "explicit" \
+    "${shortopts[*]}" "${longopts[*]}" "$@")"
+
+  if (( $? != 0 )); then
+    try_help
+    return 2
+  fi
+
+  eval set -- "${params[@]}"
+
+  local keep_order=0
+  local stop_signal="explicit"
+  local progname=""
+  shortopts=()
+  longopts=()
+
+  local opt_name opt_arg
+  
+  while (( $# )); do
+    case "$1" in
+      --) shift; break ;;
+
+      -)
+        usage_err "${PROGNAME}" "unexpected parameter '-'"
+        try_help
+        return 2
+        ;;
+
+      -k|--keep-order) keep_order=1 ;;
+
+      -l=*|--longopts=*)
+        opt_name="$(get_opt_name "$1")"
+
+        # Squeeze any sequence of commas and whitespace into a space.
+        opt_arg="$(tr -s ', \f\n\r\t\v' ' ' <<< "${1#*=}")"
+
+        local definition
+
+        for definition in ${opt_arg,,}; do
+          if [[ ! "${definition}" =~ ^[a-z0-9][-a-z0-9]+:{0,2}$ ]]; then
+            usage_err "${PROGNAME}" "invalid long option definition " \
+              "'${definition}' in argument for option '${opt_name}'"
+            try_help
+            return 2
+          fi
+
+          longopts+=( "${definition}" )
+        done
+        ;;
+
+      -n=*|--progname=*) progname="${1#*=}" ;;
+
+      -o=*|--shortopts=*)
+        opt_name="$(get_opt_name "$1")"
+
+        # Squeeze any sequence of commas and whitespace into a space,
+        # then separate any unseparated definitions with a space.
+        opt_arg="$(tr ', \f\n\r\t\v' ' ' <<< "${1#*=}" \
+          | sed 's/[[:space:]]*\([A-Za-z]:\{0,2\}\)[[:space:]]*/ \1 /g')"
+
+        local definition
+
+        for definition in ${opt_arg}; do
+          if [[ ! "${definition}" =~ ^[A-Za-z]:{0,2} ]]; then
+            usage_err "${PROGNAME}" "invalid short option definition " \
+              "'${definition}' in argument for option '${opt_name}'"
+            try_help
+            return 2
+          fi
+
+          shortopts+=( "${definition}" )
+        done
+        ;;
+
+      -s=*|--stop-signal=*)
+        opt_name="$(get_opt_name "$1")"
+        opt_arg="${1#*=}"
+        local value=""
+
+        if [[ -n "${opt_arg}" ]]; then
+          for signal in explicit non-opt unknown-opt; do
+            if [[ "${signal}" =~ ^"${opt_arg}".*$ ]]; then
+              value="${signal}"; break
+            fi
+          done
+        fi
+        
+        if [[ -z "${value}" ]]; then
+          usage_err "${PROGNAME}" "invalid argument '${opt_arg}' " \
+            "for option '${opt_name}'" $'\n' "Valid arguments are: " \
+            "'explicit', 'non-opt', or 'unknown-opt'"
+          try_help
+          return 2
+        fi
+
+        stop_signal="${value}"
+        ;;
+
+      --help) usage; return 0 ;;
+
+      --version) echo "${PROGNAME} version ${VERSION}"; return 0 ;;
+
+      *)
+        usage_err "${PROGNAME}" "unexpected parameter '$1'"
+        try_help
+        return 2
+        ;;
+    esac
+
+    shift
+  done
+
+  parse "${progname}" "${keep_order}" "${stop_signal}" \
+    "${shortopts[*]}" "${longopts[*]}" "$@"
+}
+
+
+main "$@"
+
+
+# vim: expandtab:ts=2:sw=0
