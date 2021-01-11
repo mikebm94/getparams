@@ -43,6 +43,10 @@ For more details, see ${PROGNAME_INTL}(1).
 EOF
 }
 
+version() {
+  echo "${PROGNAME_INTL} ${VERSION}"
+}
+
 try_help() {
   >&2 echo "Try '${PROGNAME} --help' for more information."
 }
@@ -501,7 +505,7 @@ main() {
 
       --help) usage; return 0 ;;
 
-      --version) echo "${PROGNAME} version ${VERSION}"; return 0 ;;
+      --version) version; return 0 ;;
 
       *)
         usage_err "${PROGNAME}" "unexpected parameter '$1'"
