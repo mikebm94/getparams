@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Setup Bash Automated Testing System
+      - name: Setup BATS
+        uses: mig4/setup-bats@v1
+        with:
+          bats-version: 1.2.1
+      
+      # Checks-out repository under $GITHUB_WORKSPACE
+      - name: Check-out repository
+        uses: actions/checkout@v2
+
+      # Run all tests with BATS
+      - name: Run Tests
+        run: bats -r .
