@@ -343,4 +343,21 @@ print_result() {
   [ "${output}" = "-a -b -- '--foo' '-c'" ]
 }
 
+@test "'--shortopts' is cumulative (0)" {
+  run "${BIN_GETPARAMS}" --shortopts=ab --shortopts=cd -- -a -b -c -d
+
+  print_result "${status}" "${output}"
+  [ "${status}" -eq 0 ]
+  [ "${output}" = "-a -b -c -d -- " ]
+}
+
+@test "'--longopts' is cumulative (0)" {
+  run "${BIN_GETPARAMS}" --longopts=foo,bar --longopts=fizz,buzz -- \
+    --foo --bar --fizz --buzz
+
+  print_result "${status}" "${output}"
+  [ "${status}" -eq 0 ]
+  [ "${output}" = "--foo --bar --fizz --buzz -- " ]
+}
+
 # vim: expandtab:ts=2:sw=0
