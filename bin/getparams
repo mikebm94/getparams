@@ -93,29 +93,23 @@ quote() {
 }
 
 #
-# Usage: get_shortopt_def PROGNAME OPTCHAR SHORTOPTS
+# Usage: get_shortopt_def OPTCHAR
 #
 # Search short option definitions for an option character
 # and output the full definition (e.g. 'o::').
 #
-# Arguments:
-#   PROGNAME
-#     Name of the calling program for use in usage error messages.
-#   OPTCHAR
-#     Short option character to search for. Must not include the leading '-'.
-#   SHORTOPTS
-#     Whitespace-delimited series of short option definitions to be searched.
+# Globals:
+#   progname
+#   shortopts
 #
 # Return Codes:
 #   0  success
 #   1  OPTCHAR not found
 #
 get_shortopt_def() {
-  local progname="$1"
-  local opt_char="$2"
-  local shortopts="$3"
+  local opt_char="$1"
 
-  for opt_def in ${shortopts}; do
+  for opt_def in "${shortopts[@]}"; do
     if [[ "${opt_def}" =~ ^"${opt_char}":{0,2}$ ]]; then
       echo "${opt_def}"
       return 0
@@ -127,32 +121,24 @@ get_shortopt_def() {
 }
 
 #
-# Usage: get_longopt_def PROGNAME OPTNAME LONGOPTS
+# Usage: get_longopt_def OPTNAME
 #
 # Search long option definitions for a long option name
 # and output the full definition (e.g. 'option::').
 #
-# Arguments:
-#   PROGNAME
-#     Name of the calling program for use in usage error messages.
-#   OPTNAME
-#     The full or abbreviated long option name to search for.
-#     Must not include the leading '--'.
-#   LONGOPTS
-#     Whitespace-delimited series of long option definitions to be searched.
+# Globals:
+#   longopts
+#   progname
 #
 # Return Codes:
 #   0  success
 #   1  OPTNAME not found or is an ambiguous abbreviation.
 #
 get_longopt_def() {
-  local progname="$1"
-  local opt_name="$2"
-  local longopts="$3"
+  local opt_name="$1" matched_def
+  local -a matches=()
 
-  local matched_def matches=()
-
-  for opt_def in ${longopts}; do
+  for opt_def in "${longopts[@]}"; do
     if [[ "${opt_def}" =~ ^"${opt_name}":{0,2}$ ]]; then
       # Exact match
       echo "${opt_def}"
@@ -177,32 +163,23 @@ get_longopt_def() {
 }
 
 #
-# Usage: parse PROGNAME KEEP_ORDER STOP_SIGNAL SHORTOPTS LONGOPTS [PARAM]...
+# Usage: parse [PARAM]...
 #
 # Parse and validate program parameters.
 #
-# Arguments correspond to the similarly named paramterse(1) options,
-# the details of which can be found in the usage() function.
-#
-# Arguments:
-#   PROGNAME    : string
-#   KEEP_ORDER  : '1' for true, '0' for false
-#   STOP_SIGNAL : 'explicit', 'non-opt', or 'unknown-opt'
-#   SHORTOPTS   : whitespace-delimited series of short option definitions
-#   LONGOPTS    : whitespace-delimited series of long option definitions
+# Globals:
+#   keep_order
+#   longopts
+#   progname
+#   shortopts
+#   stop_signal
 #
 # Return Codes:
 #   0  success
 #   1  usage error encountered when parsing parameters
 #
 parse() {
-  local progname="$1"; shift
-  local keep_order="$1"; shift
-  local stop_signal="$1"; shift
-  local shortopts="$1"; shift
-  local longopts="$1"; shift
-
-  local params=() nonopts=()
+  local -a params=() nonopts=()
 
   while (( $# > 0 )); do
     case "$1" in
@@ -231,14 +208,12 @@ parse() {
 
         # Get option definition
         if [[ "${stop_signal}" == "unknown-opt" ]]; then
-          opt_def="$(get_longopt_def "${progname}" "${opt_name}" \
-            "${longopts}" 2> /dev/null)"
+          opt_def="$(get_longopt_def "${opt_name}" 2> /dev/null)"
 
           # Unknown options stop option parsing
           (( $? != 0 )) && break
         else
-          opt_def="$(get_longopt_def "${progname}" "${opt_name}" \
-            "${longopts}")"
+          opt_def="$(get_longopt_def "${opt_name}")"
 
           # Unknown options generate errors
           (( $? != 0 )) && return 1
@@ -313,14 +288,12 @@ parse() {
           
           # Get option definition
           if [[ "${stop_signal}" == "unknown-opt" ]]; then
-            opt_def="$(get_shortopt_def "${progname}" "${opt_char}" \
-              "${shortopts}" 2> /dev/null)"
+            opt_def="$(get_shortopt_def "${opt_char}" 2> /dev/null)"
 
             # Unknown options stop option parsing
             (( $? != 0 )) && break 2
           else
-            opt_def="$(get_shortopt_def "${progname}" "${opt_char}" \
-              "${shortopts}")"
+            opt_def="$(get_shortopt_def "${opt_char}")"
 
             # Unknown options generate errors
             (( $? != 0 )) && return 1
@@ -398,15 +371,39 @@ parse() {
   echo "${params[*]} -- ${nonopts[*]}"
 }
 
+#
+# Main entry point
+#
+# Globals:
+#   PROGNAME
+#   keep_order
+#   stop_signal
+#   progname
+#   shortopts
+#   longopts
+#
+# Return Codes:
+#   0  success
+#   1  usage error encountered when parsing parameters
+#   2  bad usage of getparams
+#
 main() {
-  local shortopts=( k l: n: o: s: )
-  local longopts=(
-    keep-order longopts: progname: shortopts: stop-signal: help version
+  declare -gi keep_order=1
+  declare -g  stop_signal='explicit'
+  declare -g  progname="${PROGNAME}"
+  declare -ga shortopts=( k l: n: o: s: )
+  declare -ga longopts=(
+    'keep-order'
+    'longopts:'
+    'progname:'
+    'shortopts:'
+    'stop-signal:'
+    'help'
+    'version'
   )
 
   local params
-  params="$(parse "${PROGNAME}" 1 "explicit" \
-    "${shortopts[*]}" "${longopts[*]}" "$@")"
+  params="$(parse "$@")"
 
   if (( $? != 0 )); then
     try_help
@@ -415,9 +412,9 @@ main() {
 
   eval set -- "${params[@]}"
 
-  local keep_order=0
-  local stop_signal="explicit"
-  local progname=""
+  keep_order=0
+  stop_signal='explicit'
+  progname=''
   shortopts=()
   longopts=()
 
@@ -517,8 +514,7 @@ main() {
     shift
   done
 
-  parse "${progname}" "${keep_order}" "${stop_signal}" \
-    "${shortopts[*]}" "${longopts[*]}" "$@"
+  parse "$@"
 }
 
 
