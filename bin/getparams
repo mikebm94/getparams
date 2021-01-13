@@ -102,6 +102,11 @@ quote() {
 #   progname
 #   shortopts
 #
+# Arguments:
+#   OPTCHAR
+#     The option character to search for.
+#     Must not contain the leading '-' (e.g. 'o').
+#
 # Return Codes:
 #   0  success
 #   1  OPTCHAR not found
@@ -129,6 +134,11 @@ get_shortopt_def() {
 # Globals:
 #   longopts
 #   progname
+#
+# Arguments:
+#   OPTNAME
+#     The long option name to search for.
+#     Must not contain the leading '--' (e.g. 'option').
 #
 # Return Codes:
 #   0  success
@@ -377,10 +387,10 @@ parse() {
 # Globals:
 #   PROGNAME
 #   keep_order
-#   stop_signal
+#   longopts
 #   progname
 #   shortopts
-#   longopts
+#   stop_signal
 #
 # Return Codes:
 #   0  success
