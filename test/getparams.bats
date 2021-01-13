@@ -3,8 +3,11 @@
 readonly BIN_GETPARAMS="${BATS_TEST_DIRNAME%/*}/bin/getparams"
 
 print_result() {
-  echo "STATUS: $1"
-  echo "OUTPUT: \"$2\""
+  cat << EOF
+STATUS: $1
+OUTPUT:
+$2
+EOF
 }
 
 
