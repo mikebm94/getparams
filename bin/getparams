@@ -391,7 +391,7 @@ main() {
   declare -gi keep_order=1
   declare -g  stop_signal='explicit'
   declare -g  progname="${PROGNAME}"
-  declare -ga shortopts=( k l: n: o: s: )
+  declare -ga shortopts=( k l: n: o: s: h v )
   declare -ga longopts=(
     'keep-order'
     'longopts:'
@@ -500,9 +500,9 @@ main() {
         stop_signal="${value}"
         ;;
 
-      --help) usage; return 0 ;;
+      -h|--help) usage; return 0 ;;
 
-      --version) version; return 0 ;;
+      -v|--version) version; return 0 ;;
 
       *)
         usage_err "${PROGNAME}" "unexpected parameter '$1'"
