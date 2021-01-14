@@ -1,3 +1,4 @@
+.POSIX:
 PREFIX ?= /usr/local
 BINPREFIX ?= ${PREFIX}/bin
 
