@@ -2,7 +2,7 @@ PREFIX ?= /usr/local
 BINPREFIX ?= ${PREFIX}/bin
 
 all:
-	@echo "There's nothing to build. Use 'make install'."
+	@echo "Run 'make install' to install getparams."
 
 test:
 	@bats -r .
