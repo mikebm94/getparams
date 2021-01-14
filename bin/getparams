@@ -476,7 +476,7 @@ main() {
 
       -c|--combine-args) combine_args=1 ;;
 
-      -c|--no-combine-args) combine_args=0 ;;
+      -C|--no-combine-args) combine_args=0 ;;
 
       -k|--keep-order) keep_order=1 ;;
 
