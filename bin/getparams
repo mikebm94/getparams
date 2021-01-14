@@ -15,6 +15,18 @@ Usage: ${PROGNAME} [OPTION]... [-- [PARAM]...]
 Parse and validate program parameters.
 
 Options:
+  -c, --combine-args
+      Output options and their arguments combined into a single parameter
+      separated by a '='. Applies to both short and long options. This allows
+      differentiation between unspecified optional arguments (e.g. "--option")
+      and empty optional arguments (e.g. "--option=''").
+  -C, --no-combine-args
+      Output option arguments as the next parameter following their
+      corresponding option (same behaviour as the getopt(1) command). Applies
+      to both short and long options. If an optional argument was not specified,
+      it will be output as a '' parameter, and so there is no differentiation
+      between unspecified optional arguments and empty optional arguments.
+      This is the default.
   -k, --keep-order
       Output non-option parameters in the same location they were found
       rather than at the end of output after the '--' parameter.
@@ -178,6 +190,7 @@ get_longopt_def() {
 # Parse and validate program parameters.
 #
 # Globals:
+#   combine_args
 #   keep_order
 #   longopts
 #   progname
@@ -238,10 +251,14 @@ parse() {
 
             if [[ "$1" =~ ^"--${opt_name}=".*$ ]]; then
               # Specified optional argument
-              params+=( "--${opt_fullname}=$(quote "${opt_arg}")" )
+              (( combine_args )) \
+                && params+=( "--${opt_fullname}=$(quote "${opt_arg}")" ) \
+                || params+=( "--${opt_fullname}" "$(quote "${opt_arg}")" )
             else
               # Unspecified optional argument
-              params+=( "--${opt_fullname}" )
+              (( combine_args )) \
+                && params+=( "--${opt_fullname}" ) \
+                || params+=( "--${opt_fullname}" "''" )
             fi
             ;;
 
@@ -250,12 +267,17 @@ parse() {
 
             if [[ "$1" =~ ^"--${opt_name}=".*$ ]]; then
               # Specified required argument in current parameter
-              params+=( "--${opt_fullname}=$(quote "${opt_arg}")" )
+              (( combine_args )) \
+                && params+=( "--${opt_fullname}=$(quote "${opt_arg}")" ) \
+                || params+=( "--${opt_fullname}" "$(quote "${opt_arg}")" )
             elif (( $# > 1 )); then
               # Specified required argument in next parameter
               shift
               opt_arg="$1"
-              params+=( "--${opt_fullname}=$(quote "${opt_arg}")" )
+
+              (( combine_args )) \
+                && params+=( "--${opt_fullname}=$(quote "${opt_arg}")" ) \
+                || params+=( "--${opt_fullname}" "$(quote "${opt_arg}")" )
             else
               # Unspecified required argument
               usage_err "${progname}" \
@@ -317,11 +339,16 @@ parse() {
               if (( i < opt_count - 1 )); then
                 # Specified optional argument
                 opt_arg="${group_opt_chars:i+1}"
-                group_params+=( "-${opt_char}=$(quote "${opt_arg}")" )
+
+                (( combine_args )) \
+                  && group_params+=( "-${opt_char}=$(quote "${opt_arg}")" ) \
+                  || group_params+=( "-${opt_char}" "$(quote "${opt_arg}")" )
                 break
               else
                 # Unspecified optional argument
-                group_params+=( "-${opt_char}" )
+                (( combine_args )) \
+                  && group_params+=( "-${opt_char}" ) \
+                  || group_params+=( "-${opt_char}" "''" )
               fi
               ;;
 
@@ -342,7 +369,9 @@ parse() {
                 return 1
               fi
 
-              group_params+=( "-${opt_char}=$(quote "${opt_arg}")" )
+              (( combine_args )) \
+                && group_params+=( "-${opt_char}=$(quote "${opt_arg}")" ) \
+                || group_params+=( "-${opt_char}" "$(quote "${opt_arg}")" )
               break
               ;;
 
@@ -386,6 +415,7 @@ parse() {
 #
 # Globals:
 #   PROGNAME
+#   combine_args
 #   keep_order
 #   longopts
 #   progname
@@ -398,11 +428,14 @@ parse() {
 #   2  bad usage of getparams
 #
 main() {
+  declare -gi combine_args=1
   declare -gi keep_order=1
   declare -g  stop_signal='explicit'
   declare -g  progname="${PROGNAME}"
-  declare -ga shortopts=( k l: n: o: s: h v )
+  declare -ga shortopts=( c C k l: n: o: s: h v )
   declare -ga longopts=(
+    'combine-args'
+    'no-combine-args'
     'keep-order'
     'longopts:'
     'progname:'
@@ -422,6 +455,7 @@ main() {
 
   eval set -- "${params[@]}"
 
+  combine_args=1
   keep_order=0
   stop_signal='explicit'
   progname=''
@@ -439,6 +473,10 @@ main() {
         try_help
         return 2
         ;;
+
+      -c|--combine-args) combine_args=1 ;;
+
+      -c|--no-combine-args) combine_args=0 ;;
 
       -k|--keep-order) keep_order=1 ;;
 

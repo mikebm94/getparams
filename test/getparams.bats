@@ -346,6 +346,30 @@ EOF
   [ "${output}" = "-a -b -- '--foo' '-c'" ]
 }
 
+@test "--no-combine-args - arguments are output separately [required argument] (0)" {
+  run "${BIN_GETPARAMS}" --no-combine-args --longopts=foo: -- --foo bar
+  
+  print_result "${status}" "${output}"
+  [ "${status}" -eq 0 ]
+  [ "${output}" = "--foo 'bar' -- " ]
+}
+
+@test "--no-combine-args - arguments are output separately [unspecified optional argument] (0)" {
+  run "${BIN_GETPARAMS}" --no-combine-args --longopts=foo:: -- --foo
+  
+  print_result "${status}" "${output}"
+  [ "${status}" -eq 0 ]
+  [ "${output}" = "--foo '' -- " ]
+}
+
+@test "--no-combine-args - arguments are output separately [empty optional argument] (0)" {
+  run "${BIN_GETPARAMS}" --no-combine-args --longopts=foo:: -- --foo=''
+  
+  print_result "${status}" "${output}"
+  [ "${status}" -eq 0 ]
+  [ "${output}" = "--foo '' -- " ]
+}
+
 @test "'--shortopts' is cumulative (0)" {
   run "${BIN_GETPARAMS}" --shortopts=ab --shortopts=cd -- -a -b -c -d
 
