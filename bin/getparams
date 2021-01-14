@@ -455,7 +455,7 @@ main() {
 
   eval set -- "${params[@]}"
 
-  combine_args=1
+  combine_args=0
   keep_order=0
   stop_signal='explicit'
   progname=''

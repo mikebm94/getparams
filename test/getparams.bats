@@ -105,7 +105,7 @@ EOF
 
   print_result "${status}" "${output}"
   [ "${status}" -eq 0 ]
-  [ "${output}" = "-a='foo' -- " ]
+  [ "${output}" = "-a 'foo' -- " ]
 }
 
 @test "short option argument [required - next parameter] (0)" {
@@ -113,7 +113,7 @@ EOF
 
   print_result "${status}" "${output}"
   [ "${status}" -eq 0 ]
-  [ "${output}" = "-a='--foo' -- " ]
+  [ "${output}" = "-a '--foo' -- " ]
 }
 
 @test "short option group argument [required - current parameter] (0)" {
@@ -121,7 +121,7 @@ EOF
 
   print_result "${status}" "${output}"
   [ "${status}" -eq 0 ]
-  [ "${output}" = "-a -b -c='foo' -- " ]
+  [ "${output}" = "-a -b -c 'foo' -- " ]
 }
 
 @test "short option group argument [required - next parameter] (0)" {
@@ -129,7 +129,7 @@ EOF
 
   print_result "${status}" "${output}"
   [ "${status}" -eq 0 ]
-  [ "${output}" = "-a -b -c='--foo' -- " ]
+  [ "${output}" = "-a -b -c '--foo' -- " ]
 }
 
 @test "short option argument [optional] (0)" {
@@ -137,7 +137,7 @@ EOF
 
   print_result "${status}" "${output}"
   [ "${status}" -eq 0 ]
-  [ "${output}" = "-a='foo' -- " ]
+  [ "${output}" = "-a 'foo' -- " ]
 }
 
 @test "short option group argument [optional] (0)" {
@@ -145,7 +145,7 @@ EOF
 
   print_result "${status}" "${output}"
   [ "${status}" -eq 0 ]
-  [ "${output}" = "-a -b -c='foo' -- " ]
+  [ "${output}" = "-a -b -c 'foo' -- " ]
 }
 
 @test "long option (0)" {
@@ -193,7 +193,7 @@ EOF
 
   print_result "${status}" "${output}"
   [ "${status}" -eq 0 ]
-  [ "${output}" = "--foo='bar' -- " ]
+  [ "${output}" = "--foo 'bar' -- " ]
 }
 
 @test "long option argument [required - next parameter] (0)" {
@@ -201,7 +201,7 @@ EOF
 
   print_result "${status}" "${output}"
   [ "${status}" -eq 0 ]
-  [ "${output}" = "--foo='--bar' -- " ]
+  [ "${output}" = "--foo '--bar' -- " ]
 }
 
 @test "long option argument [optional] (0)" {
@@ -209,7 +209,7 @@ EOF
 
   print_result "${status}" "${output}"
   [ "${status}" -eq 0 ]
-  [ "${output}" = "--foo='bar' -- " ]
+  [ "${output}" = "--foo 'bar' -- " ]
 }
 
 @test "unwanted long option argument (1)" {
@@ -224,7 +224,7 @@ EOF
 
   print_result "${status}" "${output}"
   [ "${status}" -eq 0 ]
-  [ "${output}" = "-a -- 'foo'" ]
+  [ "${output}" = "-a '' -- 'foo'" ]
 }
 
 @test "parameter after long option with optional argument is non-opt (0)" {
@@ -232,7 +232,7 @@ EOF
 
   print_result "${status}" "${output}"
   [ "${status}" -eq 0 ]
-  [ "${output}" = "--foo -- 'bar'" ]
+  [ "${output}" = "--foo '' -- 'bar'" ]
 }
 
 @test "unknown short option (1)" {
@@ -346,28 +346,28 @@ EOF
   [ "${output}" = "-a -b -- '--foo' '-c'" ]
 }
 
-@test "--no-combine-args - arguments are output separately [required argument] (0)" {
-  run "${BIN_GETPARAMS}" --no-combine-args --longopts=foo: -- --foo bar
-  
+@test "--combine-args - required argument (0)" {
+  run "${BIN_GETPARAMS}" --combine-args --shortopts=a: -- -a foo
+
   print_result "${status}" "${output}"
   [ "${status}" -eq 0 ]
-  [ "${output}" = "--foo 'bar' -- " ]
+  [ "${output}" = "-a='foo' -- " ]
 }
 
-@test "--no-combine-args - arguments are output separately [unspecified optional argument] (0)" {
-  run "${BIN_GETPARAMS}" --no-combine-args --longopts=foo:: -- --foo
-  
+@test "--combine-args - empty optional argument (0)" {
+  run "${BIN_GETPARAMS}" --combine-args --longopts=foo:: -- --foo=''
+
   print_result "${status}" "${output}"
   [ "${status}" -eq 0 ]
-  [ "${output}" = "--foo '' -- " ]
+  [ "${output}" = "--foo='' -- " ]
 }
 
-@test "--no-combine-args - arguments are output separately [empty optional argument] (0)" {
-  run "${BIN_GETPARAMS}" --no-combine-args --longopts=foo:: -- --foo=''
-  
+@test "--combine-args - unspecified optional argument (0)" {
+  run "${BIN_GETPARAMS}" --combine-args --longopts=foo:: -- --foo
+
   print_result "${status}" "${output}"
   [ "${status}" -eq 0 ]
-  [ "${output}" = "--foo '' -- " ]
+  [ "${output}" = "--foo -- " ]
 }
 
 @test "'--shortopts' is cumulative (0)" {
