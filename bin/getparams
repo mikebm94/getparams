@@ -46,9 +46,9 @@ Options:
         'explicit'    (a '--' parameter, this is the default)
         'non-opt'     (the first non-option parameter)
         'unknown-opt' (unrecognized option or the non-option parameter)
-  --help
+  -h, --help
       Print this help text and exit
-  --version
+  -v, --version
       Print version information and exit
 
 For more details, see ${PROGNAME_INTL}(1).
