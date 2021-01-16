@@ -1,3 +1,9 @@
 [submodule "tools/bats-core"]
 	path = tools/bats-core
 	url = https://github.com/bats-core/bats-core.git
+[submodule "tools/bats-support"]
+	path = tools/bats-support
+	url = https://github.com/bats-core/bats-support.git
+[submodule "tools/bats-assert"]
+	path = tools/bats-assert
+	url = https://github.com/bats-core/bats-assert.git
