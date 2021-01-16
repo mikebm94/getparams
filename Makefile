@@ -5,8 +5,11 @@ BINPREFIX ?= ${PREFIX}/bin
 all:
 	@echo "Run 'make install' to install getparams."
 
-test:
-	@bats -r .
+test: tools/bats-core/bin/bats
+	@tools/bats-core/bin/bats -r test/
+
+tools/bats-core/bin/bats:
+	@git submodule update --init --recursive -- tools/bats-core
 
 install:
 	@install -Dm755 bin/getparams "${DESTDIR}${BINPREFIX}/getparams"
