@@ -15,16 +15,16 @@ readonly GETPARAMS="${BATS_TEST_DIRNAME%/*}/bin/getparams"
 --foo 'shouldn'\''t' --bar 'couldn'\''t' -- 'wouldn'\''t'"
 }
 
-@test "output: non-option parameters are grouped at the end of output (0)" {
-  run "${GETPARAMS}" --shortopts=abc -- -a FOO -b BAR -c
-  assert_success
-  assert_output "-a -b -c -- 'FOO' 'BAR'"
-}
-
-@test "output: non-option parameters are output where they were found [--keep-order] (0)" {
+@test "output: --keep-order: non-option parameters are output where they were found [--keep-order] (0)" {
   run "${GETPARAMS}" --keep-order --shortopts=abc -- -a FOO -b BAR -c
   assert_success
   assert_output "-a 'FOO' -b 'BAR' -c -- "
+}
+
+@test "output: --no-keep-order: non-option parameters are grouped at the end of output (0)" {
+  run "${GETPARAMS}" --no-keep-order --shortopts=abc -- -a FOO -b BAR -c
+  assert_success
+  assert_output "-a -b -c -- 'FOO' 'BAR'"
 }
 
 @test "output: --combine-args: output options and their arguments as combined parameter (0)" {

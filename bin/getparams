@@ -28,8 +28,10 @@ Options:
       between unspecified optional arguments and empty optional arguments.
       This is the default.
   -k, --keep-order
-      Output non-option parameters in the same location they were found
-      rather than at the end of output after the '--' parameter.
+      Output non-option parameters in the same location they were found.
+  -K, --no-keep-order
+      Output all non-option parameters at the end of output following
+      a '--' parameter.
   -l, --longopts=LONGOPTS
       A series of recognized long option definitions delimited by
       whitespace and/or commas.
@@ -432,11 +434,12 @@ main() {
   declare -gi keep_order=1
   declare -g  stop_signal='explicit'
   declare -g  progname="${PROGNAME}"
-  declare -ga shortopts=( c C k l: n: o: s: h v )
+  declare -ga shortopts=( c C k K l: n: o: s: h v )
   declare -ga longopts=(
     'combine-args'
     'no-combine-args'
     'keep-order'
+    'no-keep-order'
     'longopts:'
     'progname:'
     'shortopts:'
@@ -479,6 +482,8 @@ main() {
       -C|--no-combine-args) combine_args=0 ;;
 
       -k|--keep-order) keep_order=1 ;;
+
+      -K|--no-keep-order) keep_order=0 ;;
 
       -l=*|--longopts=*)
         opt_name="$(get_opt_name "$1")"
