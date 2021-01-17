@@ -55,26 +55,6 @@ readonly GETPARAMS="${BATS_TEST_DIRNAME%/*}/bin/getparams"
   assert_output --partial "unrecognized option 'D'"
 }
 
-@test "parsing: unrecognized shortopt fails [--stop-signal=non-opt] (1)" {
-  run "${GETPARAMS}" --stop-signal=non-opt --shortopts=a -- -a -B
-  assert_failure 1
-  assert_output --partial "unrecognized option 'B'"
-
-  run "${GETPARAMS}" --stop-signal=non-opt --shortopts=c -- -cD
-  assert_failure 1
-  assert_output --partial "unrecognized option 'D'"
-}
-
-@test "parsing: unrecognized shortopt stops parsing [--stop-signal=unknown-opt] (0)" {
-  run "${GETPARAMS}" --stop-signal=unknown-opt --shortopts=ab -- -a -X -b
-  assert_success
-  assert_output "-a -- '-X' '-b'"
-
-  run "${GETPARAMS}" --stop-signal=unknown-opt --shortopts=cd -- -cY -d
-  assert_success
-  assert_output " -- '-cY' '-d'"
-}
-
 @test "parsing: longopts (0)" {
   run "${GETPARAMS}" --longopts=foo,bar -- --foo --bar
   assert_success
@@ -147,18 +127,6 @@ readonly GETPARAMS="${BATS_TEST_DIRNAME%/*}/bin/getparams"
   assert_output --partial "unrecognized option '--bar'"
 }
 
-@test "parsing: unrecognized longopt fails [--stop-signal=non-opt] (1)" {
-  run "${GETPARAMS}" --stop-signal=non-opt --longopts=foo -- --foo --bar
-  assert_failure 1
-  assert_output --partial "unrecognized option '--bar'"
-}
-
-@test "parsing: unrecognized longopt stops parsing [--stop-signal=unknown-opt] (0)" {
-  run "${GETPARAMS}" --stop-signal=unknown-opt --longopts=foo,bar -- --foo --BAZ --bar
-  assert_success
-  assert_output "--foo -- '--BAZ' '--bar'"
-}
-
 @test "parsing: option after option with required argument is interpreted as the argument (0)" {
   run "${GETPARAMS}" --shortopts=a:b: --longopts=foo:,bar: -- -a -b --foo --bar
   assert_success
@@ -166,9 +134,9 @@ readonly GETPARAMS="${BATS_TEST_DIRNAME%/*}/bin/getparams"
 }
 
 @test "parsing: parameter after option with optional argument is interpreted as a non-opt (0)" {
-  run "${GETPARAMS}" --shortopts=a:: --longopts=foo:: -- -a FIZZ --foo BUZZ
+  run "${GETPARAMS}" --shortopts=a::bc:: --longopts=foo:: -- -a FIZZ -bc BUZZ --foo BIZZ
   assert_success
-  assert_output "-a '' --foo '' -- 'FIZZ' 'BUZZ'"
+  assert_output "-a '' -b -c '' --foo '' -- 'FIZZ' 'BUZZ' 'BIZZ'"
 }
 
 @test "parsing: '--' parameter stops parsing (0)" {
@@ -177,16 +145,44 @@ readonly GETPARAMS="${BATS_TEST_DIRNAME%/*}/bin/getparams"
   assert_output "-a -- '-b'"
 }
 
-@test "parsing: first non-option parameter stops parsing [--stop-signal=non-opt] (0)" {
+@test "parsing: --stop-signal=non-opt: first non-option parameter stops parsing (0)" {
   run "${GETPARAMS}" --stop-signal=non-opt --shortopts=ab -- -a FOO -b
   assert_success
   assert_output "-a -- 'FOO' '-b'"
 }
 
-@test "parsing: first non-option parameter stops parsing [--stop-signal=unknown-opt] (0)" {
+@test "parsing: --stop-signal=non-opt: unrecognized option fails (1)" {
+  run "${GETPARAMS}" --stop-signal=non-opt --shortopts=a -- -a -B
+  assert_failure 1
+  assert_output --partial "unrecognized option 'B'"
+
+  run "${GETPARAMS}" --stop-signal=non-opt --shortopts=c -- -cD
+  assert_failure 1
+  assert_output --partial "unrecognized option 'D'"
+
+  run "${GETPARAMS}" --stop-signal=non-opt --longopts=foo -- --foo --bar
+  assert_failure 1
+  assert_output --partial "unrecognized option '--bar'"
+}
+
+@test "parsing: --stop-signal=unknown-opt: first non-option parameter stops parsing (0)" {
   run "${GETPARAMS}" --stop-signal=unknown-opt --shortopts=ab -- -a FOO -b
   assert_success
   assert_output "-a -- 'FOO' '-b'"
+}
+
+@test "parsing: --stop-signal=unknown-opt: unrecognized shortopt stops parsing (0)" {
+  run "${GETPARAMS}" --stop-signal=unknown-opt --shortopts=ab -- -a -X -b
+  assert_success
+  assert_output "-a -- '-X' '-b'"
+
+  run "${GETPARAMS}" --stop-signal=unknown-opt --shortopts=cd -- -cY -d
+  assert_success
+  assert_output " -- '-cY' '-d'"
+
+  run "${GETPARAMS}" --stop-signal=unknown-opt --longopts=foo,bar -- --foo --BAZ --bar
+  assert_success
+  assert_output "--foo -- '--BAZ' '--bar'"
 }
 
 # vim: expandtab:ts=2:sw=0
