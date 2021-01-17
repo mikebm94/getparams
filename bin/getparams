@@ -470,13 +470,7 @@ main() {
   while (( $# )); do
     case "$1" in
       --) shift; break ;;
-
-      -)
-        usage_err "${PROGNAME}" "unexpected parameter '-'"
-        try_help
-        return 2
-        ;;
-
+      
       -c|--combine-args) combine_args=1 ;;
 
       -C|--no-combine-args) combine_args=0 ;;
