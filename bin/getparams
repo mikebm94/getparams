@@ -103,7 +103,7 @@ get_opt_name() {
 # Wrap PARAM in single quotes and escape any embedded single quotes.
 #
 quote() {
-  echo "'$(sed "s:':'\\\'':g" <<< "$1")'"
+  echo "'${1//\'/\'\\\'\'}'"
 }
 
 #
@@ -233,15 +233,11 @@ parse() {
 
         # Get option definition
         if [[ "${stop_signal}" == "unknown-opt" ]]; then
-          opt_def="$(get_longopt_def "${opt_name}" 2> /dev/null)"
-
           # Unknown options stop option parsing
-          (( $? != 0 )) && break
+          opt_def="$(get_longopt_def "${opt_name}" 2> /dev/null)" || break
         else
-          opt_def="$(get_longopt_def "${opt_name}")"
-
           # Unknown options generate errors
-          (( $? != 0 )) && return 1
+          opt_def="$(get_longopt_def "${opt_name}")" || return 1
         fi
 
         local opt_fullname="${opt_def%%:*}"
@@ -322,15 +318,11 @@ parse() {
           
           # Get option definition
           if [[ "${stop_signal}" == "unknown-opt" ]]; then
-            opt_def="$(get_shortopt_def "${opt_char}" 2> /dev/null)"
-
             # Unknown options stop option parsing
-            (( $? != 0 )) && break 2
+            opt_def="$(get_shortopt_def "${opt_char}" 2> /dev/null)" || break 2
           else
-            opt_def="$(get_shortopt_def "${opt_char}")"
-
             # Unknown options generate errors
-            (( $? != 0 )) && return 1
+            opt_def="$(get_shortopt_def "${opt_char}")" || return 1
           fi
 
           # Parse option
@@ -449,9 +441,7 @@ main() {
   )
 
   local params
-  params="$(parse "$@")"
-
-  if (( $? != 0 )); then
+  if ! params="$(parse "$@")"; then
     try_help
     return 2
   fi
