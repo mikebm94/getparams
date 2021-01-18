@@ -5,6 +5,9 @@ BINPREFIX ?= ${PREFIX}/bin
 all:
 	@echo "Run 'make install' to install getparams."
 
+lint:
+	@LC_ALL=C.UTF-8 shellcheck ${LINTOPTS} bin/* test/*.bats
+
 test: tools/bats-core/bin/bats tools/bats-support/load.bash tools/bats-assert/load.bash
 	@tools/bats-core/bin/bats -r test/
 
@@ -23,4 +26,4 @@ install:
 uninstall:
 	@rm "${DESTDIR}${BINPREFIX}/getparams"
 
-.PHONY: all test install uninstall
+.PHONY: all lint test install uninstall
