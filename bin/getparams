@@ -89,7 +89,7 @@ get_opt_name() {
   local opt_name="${1%%=*}"
 
   case "${opt_name}" in
-    --) ;&
+    --) echo "$1" ;;
     -) echo "$1" ;;
     --*) echo "${opt_name}" ;;
     -*) echo "${opt_name#-}" ;;
@@ -103,7 +103,11 @@ get_opt_name() {
 # Wrap PARAM in single quotes and escape any embedded single quotes.
 #
 quote() {
-  echo "'${1//\'/\'\\\'\'}'"
+  # The ${var//search/replace} parameter expansion in bash v3 interprets
+  # special characters such as backslashes in the replacement text as literals.
+  # Use sed instead for a consistent behavior across bash versions.
+  # shellcheck disable=SC2001
+  echo "'$(sed "s/'/'\\\''/g" <<< "$1")'"
 }
 
 #
@@ -422,12 +426,12 @@ parse() {
 #   2  bad usage of getparams
 #
 main() {
-  declare -gi combine_args=1
-  declare -gi keep_order=1
-  declare -g  stop_signal='explicit'
-  declare -g  progname="${PROGNAME}"
-  declare -ga shortopts=( c C k K l: n: o: s: h v )
-  declare -ga longopts=(
+  declare -i combine_args=1
+  declare -i keep_order=1
+  declare    stop_signal='explicit'
+  declare    progname="${PROGNAME}"
+  declare -a shortopts=( c C k K l: n: o: s: h v )
+  declare -a longopts=(
     'combine-args'
     'no-combine-args'
     'keep-order'
@@ -472,12 +476,14 @@ main() {
       -l=*|--longopts=*)
         opt_name="$(get_opt_name "$1")"
 
-        # Squeeze any sequence of commas and whitespace into a space.
-        opt_arg="$(tr -s ', \f\n\r\t\v' ' ' <<< "${1#*=}")"
+        # Squeeze any sequence of commas and whitespace into a space
+        # and convert letters to lowercase.
+        opt_arg="$(tr -s ', \f\n\r\t\v' ' ' <<< "${1#*=}" \
+          | tr '[:upper:]' '[:lower:]')"
 
         local definition
 
-        for definition in ${opt_arg,,}; do
+        for definition in ${opt_arg}; do
           if [[ ! "${definition}" =~ ^[a-z0-9][-a-z0-9]+:{0,2}$ ]]; then
             usage_err "${PROGNAME}" "invalid long option definition " \
               "'${definition}' in argument for option '${opt_name}'"
