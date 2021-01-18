@@ -422,12 +422,12 @@ parse() {
 #   2  bad usage of getparams
 #
 main() {
-  declare -gi combine_args=1
-  declare -gi keep_order=1
-  declare -g  stop_signal='explicit'
-  declare -g  progname="${PROGNAME}"
-  declare -ga shortopts=( c C k K l: n: o: s: h v )
-  declare -ga longopts=(
+  declare -i combine_args=1
+  declare -i keep_order=1
+  declare    stop_signal='explicit'
+  declare    progname="${PROGNAME}"
+  declare -a shortopts=( c C k K l: n: o: s: h v )
+  declare -a longopts=(
     'combine-args'
     'no-combine-args'
     'keep-order'
