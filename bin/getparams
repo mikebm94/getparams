@@ -103,7 +103,11 @@ get_opt_name() {
 # Wrap PARAM in single quotes and escape any embedded single quotes.
 #
 quote() {
-  echo "'${1//\'/\'\\\'\'}'"
+  # The ${var//search/replace} parameter expansion in bash v3 interprets
+  # special characters such as backslashes in the replacement text as literals.
+  # Use sed instead for a consistent behavior across bash versions.
+  # shellcheck disable=SC2001
+  echo "'$(sed "s/'/'\\\''/g" <<< "$1")'"
 }
 
 #
