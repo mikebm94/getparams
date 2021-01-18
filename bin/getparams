@@ -89,7 +89,7 @@ get_opt_name() {
   local opt_name="${1%%=*}"
 
   case "${opt_name}" in
-    --) ;&
+    --) echo "$1" ;;
     -) echo "$1" ;;
     --*) echo "${opt_name}" ;;
     -*) echo "${opt_name#-}" ;;
