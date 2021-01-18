@@ -472,12 +472,14 @@ main() {
       -l=*|--longopts=*)
         opt_name="$(get_opt_name "$1")"
 
-        # Squeeze any sequence of commas and whitespace into a space.
-        opt_arg="$(tr -s ', \f\n\r\t\v' ' ' <<< "${1#*=}")"
+        # Squeeze any sequence of commas and whitespace into a space
+        # and convert letters to lowercase.
+        opt_arg="$(tr -s ', \f\n\r\t\v' ' ' <<< "${1#*=}" \
+          | tr '[:upper:]' '[:lower:]')"
 
         local definition
 
-        for definition in ${opt_arg,,}; do
+        for definition in ${opt_arg}; do
           if [[ ! "${definition}" =~ ^[a-z0-9][-a-z0-9]+:{0,2}$ ]]; then
             usage_err "${PROGNAME}" "invalid long option definition " \
               "'${definition}' in argument for option '${opt_name}'"
