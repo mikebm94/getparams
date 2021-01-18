@@ -9,7 +9,7 @@ lint:
 	@LC_ALL=C.UTF-8 shellcheck ${LINTOPTS} bin/* test/*.bats
 
 test: tools/bats-core/bin/bats tools/bats-support/load.bash tools/bats-assert/load.bash
-	@tools/bats-core/bin/bats -r test/
+	@tools/bats-core/bin/bats ${TESTOPTS} -r test/
 
 tools/bats-core/bin/bats:
 	@git submodule update --init --recursive -- tools/bats-core
