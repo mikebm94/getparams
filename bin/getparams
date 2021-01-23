@@ -29,9 +29,10 @@ Options:
       This is the default.
   -k, --keep-order
       Output non-option parameters in the same location they were found.
+      Has no effect if --stop-signal is set to 'non-opt' or 'unknown-opt'.
   -K, --no-keep-order
       Output all non-option parameters at the end of output following
-      a '--' parameter.
+      a '--' parameter. This is the default.
   -l, --longopts=LONGOPTS
       A series of recognized long option definitions delimited by
       whitespace and/or commas.
