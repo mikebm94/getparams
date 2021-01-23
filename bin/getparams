@@ -61,18 +61,156 @@ version() {
   echo "${PROGNAME_INTL} ${VERSION}"
 }
 
-try_help() {
-  >&2 echo "Try '${PROGNAME} --help' for more information."
-}
+#
+# Main entry point
+#
+# Globals:
+#   PROGNAME
+#   combine_args
+#   keep_order
+#   longopts
+#   progname
+#   shortopts
+#   stop_signal
+#
+# Return Codes:
+#   0  success
+#   1  usage error encountered when parsing parameters
+#   2  bad usage of getparams
+#
+main() {
+  declare -i combine_args=1
+  declare -i keep_order=1
+  declare    stop_signal='explicit'
+  declare    progname="${PROGNAME}"
+  declare -a shortopts=( c C k K l: n: o: s: h v )
+  declare -a longopts=(
+    'combine-args'
+    'no-combine-args'
+    'keep-order'
+    'no-keep-order'
+    'longopts:'
+    'progname:'
+    'shortopts:'
+    'stop-signal:'
+    'help'
+    'version'
+  )
 
-#
-# Usage: usage_err PROGNAME [TEXT]...
-#
-# Print a standard usage error message to standard error.
-#
-usage_err() {
-  local progname="$1"; shift
-  >&2 printf "%s" "${progname:-error}: " "$@" $'\n'
+  local params
+  if ! params="$(parse "$@")"; then
+    try_help
+    return 2
+  fi
+
+  eval set -- "${params[@]}"
+
+  combine_args=0
+  keep_order=0
+  stop_signal='explicit'
+  progname=''
+  shortopts=()
+  longopts=()
+
+  local opt_name opt_arg
+  
+  while (( $# )); do
+    case "$1" in
+      --) shift; break ;;
+      
+      -c|--combine-args) combine_args=1 ;;
+
+      -C|--no-combine-args) combine_args=0 ;;
+
+      -k|--keep-order) keep_order=1 ;;
+
+      -K|--no-keep-order) keep_order=0 ;;
+
+      -l=*|--longopts=*)
+        opt_name="$(get_opt_name "$1")"
+
+        # Squeeze any sequence of commas and whitespace into a space
+        # and convert letters to lowercase.
+        opt_arg="$(tr -s ', \f\n\r\t\v' ' ' <<< "${1#*=}" \
+          | tr '[:upper:]' '[:lower:]')"
+
+        local definition
+
+        for definition in ${opt_arg}; do
+          if [[ ! "${definition}" =~ ^[a-z0-9][-a-z0-9]+:{0,2}$ ]]; then
+            usage_err "${PROGNAME}" "invalid long option definition " \
+              "'${definition}' in argument for option '${opt_name}'"
+            try_help
+            return 2
+          fi
+
+          longopts+=( "${definition}" )
+        done
+        ;;
+
+      -n=*|--progname=*) progname="${1#*=}" ;;
+
+      -o=*|--shortopts=*)
+        opt_name="$(get_opt_name "$1")"
+
+        # Squeeze any sequence of commas and whitespace into a space,
+        # then separate any unseparated definitions with a space.
+        opt_arg="$(tr ', \f\n\r\t\v' ' ' <<< "${1#*=}" \
+          | sed 's/[[:space:]]*\([A-Za-z]:\{0,2\}\)[[:space:]]*/ \1 /g')"
+
+        local definition
+
+        for definition in ${opt_arg}; do
+          if [[ ! "${definition}" =~ ^[A-Za-z]:{0,2} ]]; then
+            usage_err "${PROGNAME}" "invalid short option definition " \
+              "'${definition}' in argument for option '${opt_name}'"
+            try_help
+            return 2
+          fi
+
+          shortopts+=( "${definition}" )
+        done
+        ;;
+
+      -s=*|--stop-signal=*)
+        opt_name="$(get_opt_name "$1")"
+        opt_arg="${1#*=}"
+        local value=""
+
+        if [[ -n "${opt_arg}" ]]; then
+          for signal in explicit non-opt unknown-opt; do
+            if [[ "${signal}" =~ ^"${opt_arg}".*$ ]]; then
+              value="${signal}"; break
+            fi
+          done
+        fi
+        
+        if [[ -z "${value}" ]]; then
+          usage_err "${PROGNAME}" "invalid argument '${opt_arg}' " \
+            "for option '${opt_name}'" $'\n' "Valid arguments are: " \
+            "'explicit', 'non-opt', or 'unknown-opt'"
+          try_help
+          return 2
+        fi
+
+        stop_signal="${value}"
+        ;;
+
+      -h|--help) usage; return 0 ;;
+
+      -v|--version) version; return 0 ;;
+
+      *)
+        usage_err "${PROGNAME}" "unexpected parameter '$1'"
+        try_help
+        return 2
+        ;;
+    esac
+
+    shift
+  done
+
+  parse "$@"
 }
 
 #
@@ -98,96 +236,17 @@ get_opt_name() {
 }
 
 #
-# Usage: quote PARAM
+# Usage: usage_err PROGNAME [TEXT]...
 #
-# Wrap PARAM in single quotes and escape any embedded single quotes.
+# Print a standard usage error message to standard error.
 #
-quote() {
-  # The ${var//search/replace} parameter expansion in bash v3 interprets
-  # special characters such as backslashes in the replacement text as literals.
-  # Use sed instead for a consistent behavior across bash versions.
-  # shellcheck disable=SC2001
-  echo "'$(sed "s/'/'\\\''/g" <<< "$1")'"
+usage_err() {
+  local progname="$1"; shift
+  >&2 printf "%s" "${progname:-error}: " "$@" $'\n'
 }
 
-#
-# Usage: get_shortopt_def OPTCHAR
-#
-# Search short option definitions for an option character
-# and output the full definition (e.g. 'o::').
-#
-# Globals:
-#   progname
-#   shortopts
-#
-# Arguments:
-#   OPTCHAR
-#     The option character to search for.
-#     Must not contain the leading '-' (e.g. 'o').
-#
-# Return Codes:
-#   0  success
-#   1  OPTCHAR not found
-#
-get_shortopt_def() {
-  local opt_char="$1"
-
-  for opt_def in "${shortopts[@]}"; do
-    if [[ "${opt_def}" =~ ^"${opt_char}":{0,2}$ ]]; then
-      echo "${opt_def}"
-      return 0
-    fi
-  done
-
-  usage_err "${progname}" "unrecognized option '${opt_char}'"
-  return 1
-}
-
-#
-# Usage: get_longopt_def OPTNAME
-#
-# Search long option definitions for a long option name
-# and output the full definition (e.g. 'option::').
-#
-# Globals:
-#   longopts
-#   progname
-#
-# Arguments:
-#   OPTNAME
-#     The long option name to search for.
-#     Must not contain the leading '--' (e.g. 'option').
-#
-# Return Codes:
-#   0  success
-#   1  OPTNAME not found or is an ambiguous abbreviation.
-#
-get_longopt_def() {
-  local opt_name="$1" matched_def
-  local -a matches=()
-
-  for opt_def in "${longopts[@]}"; do
-    if [[ "${opt_def}" =~ ^"${opt_name}":{0,2}$ ]]; then
-      # Exact match
-      echo "${opt_def}"
-      return 0
-    elif [[ "${opt_def}" =~ ^"${opt_name}"[-a-z0-9]+:{0,2}$ ]]; then
-      # Abbreviation
-      matched_def="${opt_def}"
-      matches+=( "--${opt_def%%:*}" )
-    fi
-  done
-
-  if (( ${#matches[@]} < 1 )); then
-    usage_err "${progname}" "unrecognized option '--${opt_name}'"
-    return 1
-  elif (( ${#matches[@]} > 1 )); then
-    usage_err "${progname}" "ambiguous option '--${opt_name}': " \
-      "possibilities: ${matches[*]}"
-    return 1
-  fi
-
-  echo "${matched_def}"
+try_help() {
+  >&2 echo "Try '${PROGNAME} --help' for more information."
 }
 
 #
@@ -409,155 +468,96 @@ parse() {
 }
 
 #
-# Main entry point
+# Usage: get_shortopt_def OPTCHAR
+#
+# Search short option definitions for an option character
+# and output the full definition (e.g. 'o::').
 #
 # Globals:
-#   PROGNAME
-#   combine_args
-#   keep_order
-#   longopts
 #   progname
 #   shortopts
-#   stop_signal
+#
+# Arguments:
+#   OPTCHAR
+#     The option character to search for.
+#     Must not contain the leading '-' (e.g. 'o').
 #
 # Return Codes:
 #   0  success
-#   1  usage error encountered when parsing parameters
-#   2  bad usage of getparams
+#   1  OPTCHAR not found
 #
-main() {
-  declare -i combine_args=1
-  declare -i keep_order=1
-  declare    stop_signal='explicit'
-  declare    progname="${PROGNAME}"
-  declare -a shortopts=( c C k K l: n: o: s: h v )
-  declare -a longopts=(
-    'combine-args'
-    'no-combine-args'
-    'keep-order'
-    'no-keep-order'
-    'longopts:'
-    'progname:'
-    'shortopts:'
-    'stop-signal:'
-    'help'
-    'version'
-  )
+get_shortopt_def() {
+  local opt_char="$1"
 
-  local params
-  if ! params="$(parse "$@")"; then
-    try_help
-    return 2
-  fi
-
-  eval set -- "${params[@]}"
-
-  combine_args=0
-  keep_order=0
-  stop_signal='explicit'
-  progname=''
-  shortopts=()
-  longopts=()
-
-  local opt_name opt_arg
-  
-  while (( $# )); do
-    case "$1" in
-      --) shift; break ;;
-      
-      -c|--combine-args) combine_args=1 ;;
-
-      -C|--no-combine-args) combine_args=0 ;;
-
-      -k|--keep-order) keep_order=1 ;;
-
-      -K|--no-keep-order) keep_order=0 ;;
-
-      -l=*|--longopts=*)
-        opt_name="$(get_opt_name "$1")"
-
-        # Squeeze any sequence of commas and whitespace into a space
-        # and convert letters to lowercase.
-        opt_arg="$(tr -s ', \f\n\r\t\v' ' ' <<< "${1#*=}" \
-          | tr '[:upper:]' '[:lower:]')"
-
-        local definition
-
-        for definition in ${opt_arg}; do
-          if [[ ! "${definition}" =~ ^[a-z0-9][-a-z0-9]+:{0,2}$ ]]; then
-            usage_err "${PROGNAME}" "invalid long option definition " \
-              "'${definition}' in argument for option '${opt_name}'"
-            try_help
-            return 2
-          fi
-
-          longopts+=( "${definition}" )
-        done
-        ;;
-
-      -n=*|--progname=*) progname="${1#*=}" ;;
-
-      -o=*|--shortopts=*)
-        opt_name="$(get_opt_name "$1")"
-
-        # Squeeze any sequence of commas and whitespace into a space,
-        # then separate any unseparated definitions with a space.
-        opt_arg="$(tr ', \f\n\r\t\v' ' ' <<< "${1#*=}" \
-          | sed 's/[[:space:]]*\([A-Za-z]:\{0,2\}\)[[:space:]]*/ \1 /g')"
-
-        local definition
-
-        for definition in ${opt_arg}; do
-          if [[ ! "${definition}" =~ ^[A-Za-z]:{0,2} ]]; then
-            usage_err "${PROGNAME}" "invalid short option definition " \
-              "'${definition}' in argument for option '${opt_name}'"
-            try_help
-            return 2
-          fi
-
-          shortopts+=( "${definition}" )
-        done
-        ;;
-
-      -s=*|--stop-signal=*)
-        opt_name="$(get_opt_name "$1")"
-        opt_arg="${1#*=}"
-        local value=""
-
-        if [[ -n "${opt_arg}" ]]; then
-          for signal in explicit non-opt unknown-opt; do
-            if [[ "${signal}" =~ ^"${opt_arg}".*$ ]]; then
-              value="${signal}"; break
-            fi
-          done
-        fi
-        
-        if [[ -z "${value}" ]]; then
-          usage_err "${PROGNAME}" "invalid argument '${opt_arg}' " \
-            "for option '${opt_name}'" $'\n' "Valid arguments are: " \
-            "'explicit', 'non-opt', or 'unknown-opt'"
-          try_help
-          return 2
-        fi
-
-        stop_signal="${value}"
-        ;;
-
-      -h|--help) usage; return 0 ;;
-
-      -v|--version) version; return 0 ;;
-
-      *)
-        usage_err "${PROGNAME}" "unexpected parameter '$1'"
-        try_help
-        return 2
-        ;;
-    esac
-
-    shift
+  for opt_def in "${shortopts[@]}"; do
+    if [[ "${opt_def}" =~ ^"${opt_char}":{0,2}$ ]]; then
+      echo "${opt_def}"
+      return 0
+    fi
   done
 
-  parse "$@"
+  usage_err "${progname}" "unrecognized option '${opt_char}'"
+  return 1
+}
+
+#
+# Usage: get_longopt_def OPTNAME
+#
+# Search long option definitions for a long option name
+# and output the full definition (e.g. 'option::').
+#
+# Globals:
+#   longopts
+#   progname
+#
+# Arguments:
+#   OPTNAME
+#     The long option name to search for.
+#     Must not contain the leading '--' (e.g. 'option').
+#
+# Return Codes:
+#   0  success
+#   1  OPTNAME not found or is an ambiguous abbreviation.
+#
+get_longopt_def() {
+  local opt_name="$1" matched_def
+  local -a matches=()
+
+  for opt_def in "${longopts[@]}"; do
+    if [[ "${opt_def}" =~ ^"${opt_name}":{0,2}$ ]]; then
+      # Exact match
+      echo "${opt_def}"
+      return 0
+    elif [[ "${opt_def}" =~ ^"${opt_name}"[-a-z0-9]+:{0,2}$ ]]; then
+      # Abbreviation
+      matched_def="${opt_def}"
+      matches+=( "--${opt_def%%:*}" )
+    fi
+  done
+
+  if (( ${#matches[@]} < 1 )); then
+    usage_err "${progname}" "unrecognized option '--${opt_name}'"
+    return 1
+  elif (( ${#matches[@]} > 1 )); then
+    usage_err "${progname}" "ambiguous option '--${opt_name}': " \
+      "possibilities: ${matches[*]}"
+    return 1
+  fi
+
+  echo "${matched_def}"
+}
+
+#
+# Usage: quote PARAM
+#
+# Wrap PARAM in single quotes and escape any embedded single quotes.
+#
+quote() {
+  # The ${var//search/replace} parameter expansion in bash v3 interprets
+  # special characters such as backslashes in the replacement text as literals.
+  # Use sed instead for a consistent behavior across bash versions.
+  # shellcheck disable=SC2001
+  echo "'$(sed "s/'/'\\\''/g" <<< "$1")'"
 }
 
 
