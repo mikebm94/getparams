@@ -42,13 +42,12 @@ Options:
       A series of short option definitions optionally separated by
       whitespace and/or commas.
   -s, --stop-signal=SIGNAL
-      Stop parsing options when a parameter represented by SIGNAL is
-      encountered. This causes all remaining parameters including the
-      current one to be interpreted as non-option parameters.
-      Valid values are:
-        'explicit'    (a '--' parameter, this is the default)
-        'non-opt'     (the first non-option parameter)
-        'unknown-opt' (unrecognized option or the non-option parameter)
+      Sets the type of parameter that signals the end of option parsing, causing
+      the signaling parameter and all remaining parameters to be interpreted as
+      non-option parameters. Valid arguments are:
+        'explicit'    - a '--' parameter (the default)
+        'non-opt'     - the first non-option parameter
+        'unknown-opt' - an unrecognized option or the first non-option parameter
   -h, --help
       Print this help text and exit
   -v, --version
