@@ -30,7 +30,7 @@ Usage: **getparams** [OPTION]... [-- [PARAM]...]
 
 When invoking **getparams**, you define the options your program will recognize and how they should be used. You can also specify options that change the way **getparams** parses and outputs parameters. Then, after a `--` parameter, pass the parameters that were passed to your program. The standard output of **getparams** can be stored in a temporary variable which can then be evaluated as your programs new parameters.
 
-#### Defining recognized options
+### Defining recognized options
 
 You can define the short options and/or long options that your program recognizes.
 
@@ -42,7 +42,7 @@ These options are cumulative and may be specified multiple times.
 
 Each short or long option definition may be followed by a `:` to indicate that the option requires an argument, or a `::` to indicate that it accepts an optional argument.
 
-#### Usage error handling
+### Usage error handling
 
 **getparams** handles parameter validation for you. If the options you have defined are used incorrectly, an error message describing the problem will be displayed to the user, and **getparams** will return an exit code of `1` to indicate that a usage error has occurred.
 
@@ -53,13 +53,13 @@ For example, if the user fails to specify a required argument, the following wou
 my-program: option '--my-option' requires an argument
 ```
 
-#### Exit codes
+### Exit codes
 
 * `0` - success
 * `1` - usage error encountered when parsing parameters
 * `2` - bad usage of **getparams**
 
-#### Examples
+### Examples
 
 Here's an example demonstrating basic usage of **getparams**. It's written in Bash, but it could be written in any shell scripting language that supports `sh` quoting conventions.
 
@@ -135,7 +135,7 @@ say-hello -fFOO -lBAR
 
 Would all output `Hello, FOO BAR`.
 
-#### More information
+### More information
 
 We've only gone over a few of the options/features available, and haven't gone over in depth how **getparams** parses and outputs parameters. For more information, run `man getparams` to view the manual.
 
@@ -155,7 +155,7 @@ For a system-wide install, run: `sudo make install`
 
 To uninstall, run: `sudo make uninstall`
 
-#### Custom installation location
+### Custom installation location
 
 The default install prefix is `/usr/local`. This can be changed by setting the `PREFIX` environment variable at the beginning of the command.
 
@@ -165,7 +165,7 @@ When uninstalling, the same `PREFIX` and `DESTDIR` will need to be specified.
 
 ## Testing
 
-#### Running the test suite
+### Running the test suite
 
 To run the test suite using Bats (no installation required), run:
 ```
@@ -177,7 +177,7 @@ To pass options to `bats`, use the `TESTOPTS` environment variable. For example:
 TESTOPTS='--timing --tap' make test
 ```
 
-#### Linting with ShellCheck
+### Linting with ShellCheck
 
 To check the source code for issues using ShellCheck (installation required), run:
 ```
