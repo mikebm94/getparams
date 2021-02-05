@@ -34,7 +34,7 @@ When invoking **getparams**, you define the options your program will recognize 
 
 You can define the short options and/or long options that your program recognizes.
 
-Short options are defined using the `-o` or `--shortopts` option. This option takes an argument consisting of a series single-letter options. The letters do not have to be delimited, but may be delimited by whitespace and/or commas.
+Short options are defined using the `-o` or `--shortopts` option. This option takes an argument consisting of a series of single-letter options. The letters do not have to be delimited, but may be delimited by whitespace and/or commas.
 
 Long options are defined using the `-l` or `--longopts` option. This option takes an argument consisting of a series of long option names. The names must be delimited by whitespace and/or commas.
 
